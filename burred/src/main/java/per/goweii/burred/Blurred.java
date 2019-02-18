@@ -5,6 +5,7 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.os.Build;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.Message;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -41,21 +42,24 @@ public final class Blurred {
     private boolean mKeepSize = false;
     private boolean mRecycleOriginal = false;
 
-    private Blurred(@Nullable Context context) {
-        if (context == null) {
-            mBlur = FastBlur.get();
+    private Blurred(@NonNull Context context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+            mBlur = GaussianBlur.get(context);
         } else {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
-                mBlur = GaussianBlur.get(context);
-            } else {
-                mBlur = FastBlur.get();
-            }
+            mBlur = FastBlur.get();
         }
         mExecutor = Executors.newSingleThreadExecutor();
     }
 
-    public static void init(@NonNull Context context) {
-        INSTANCE = new Blurred(context);
+    public static Blurred with(@NonNull Context context) {
+        if (INSTANCE == null) {
+            synchronized (Blurred.class) {
+                if (INSTANCE == null) {
+                    INSTANCE = new Blurred(context);
+                }
+            }
+        }
+        return INSTANCE;
     }
 
     public static void recycle() {
@@ -65,20 +69,17 @@ public final class Blurred {
         }
     }
 
-    public static Blurred with(@NonNull Bitmap original) {
-        if (INSTANCE == null) {
-            INSTANCE = new Blurred(null);
-        }
-        INSTANCE.mOriginalBitmap = original;
-        return INSTANCE;
+    public Blurred of(@NonNull Bitmap original) {
+        mOriginalBitmap = original;
+        return this;
     }
 
-    public static Blurred with(@NonNull View view) {
+    public Blurred of(@NonNull View view) {
         view.setDrawingCacheEnabled(true);
         view.buildDrawingCache(true);
         view.destroyDrawingCache();
         view.setDrawingCacheQuality(View.DRAWING_CACHE_QUALITY_LOW);
-        return with(view.getDrawingCache());
+        return of(view.getDrawingCache());
     }
 
     public Blurred percent(float percent) {
@@ -138,7 +139,7 @@ public final class Blurred {
     @SuppressLint("HandlerLeak")
     public void blur(Callback callback) {
         mCallback = callback;
-        mCallbackHandler = new Handler() {
+        mCallbackHandler = new Handler(Looper.getMainLooper()) {
             @Override
             public void handleMessage(Message msg) {
                 mCallbackHandler = null;
