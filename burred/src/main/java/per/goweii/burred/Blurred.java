@@ -50,15 +50,10 @@ public final class Blurred {
         mExecutor = Executors.newSingleThreadExecutor();
     }
 
-    public static Blurred with(@NonNull Context context) {
+    public static void init(@NonNull Context context) {
         if (INSTANCE == null) {
-            synchronized (Blurred.class) {
-                if (INSTANCE == null) {
-                    INSTANCE = new Blurred(context);
-                }
-            }
+            INSTANCE = new Blurred(context);
         }
-        return INSTANCE;
     }
 
     public static void recycle() {
@@ -68,17 +63,24 @@ public final class Blurred {
         }
     }
 
-    public Blurred of(@NonNull Bitmap original) {
-        mOriginalBitmap = original;
-        return this;
+    public static Blurred with(@NonNull Bitmap original) {
+        if (INSTANCE == null) {
+            throw new RuntimeException("Blurred未初始化");
+        }
+        return INSTANCE.bitmap(original);
     }
 
-    public Blurred of(@NonNull View view) {
+    public static Blurred with(@NonNull View view) {
         view.setDrawingCacheEnabled(true);
         view.buildDrawingCache(true);
         view.destroyDrawingCache();
         view.setDrawingCacheQuality(View.DRAWING_CACHE_QUALITY_LOW);
-        return of(view.getDrawingCache());
+        return with(view.getDrawingCache());
+    }
+
+    private Blurred bitmap(@NonNull Bitmap original){
+        mOriginalBitmap = original;
+        return this;
     }
 
     public Blurred percent(float percent) {
