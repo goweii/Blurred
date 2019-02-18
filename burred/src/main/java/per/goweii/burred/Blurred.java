@@ -8,6 +8,7 @@ import android.os.Handler;
 import android.os.Message;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.view.View;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -70,6 +71,14 @@ public final class Blurred {
         }
         INSTANCE.mOriginalBitmap = original;
         return INSTANCE;
+    }
+
+    public static Blurred with(@NonNull View view) {
+        view.setDrawingCacheEnabled(true);
+        view.buildDrawingCache(true);
+        view.destroyDrawingCache();
+        view.setDrawingCacheQuality(View.DRAWING_CACHE_QUALITY_LOW);
+        return with(view.getDrawingCache());
     }
 
     public Blurred percent(float percent) {
