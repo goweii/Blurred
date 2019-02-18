@@ -48,7 +48,7 @@ public final class GaussianBlur implements IBlur {
      * 输出图与原图参数相同
      *
      * @param originalBitmap 原图
-     * @param scaleFactor    缩放因子（>=1）
+     * @param scale    缩放因子（>=1）
      * @param radius         模糊半径
      * @return 模糊Bitmap
      */
@@ -56,26 +56,32 @@ public final class GaussianBlur implements IBlur {
     @Override
     public Bitmap process(@NonNull Bitmap originalBitmap,
                           @FloatRange(from = 0) float radius,
-                          @FloatRange(from = 1) float scaleFactor,
+                          @FloatRange(from = 1) float scale,
                           boolean keepSize,
                           boolean recycleOriginal) {
-        if (radius == 0) {
+        if (radius <= 0) {
             return originalBitmap;
         }
+        float newScale = scale;
+        float newRadius = radius;
         if (radius > 25) {
-            radius = 25;
-            scaleFactor = scaleFactor * (radius / 25);
+            newRadius = 25;
+            newScale = scale * (radius / 25);
         }
-        if (scaleFactor == 1) {
-            return blurIn25(originalBitmap, radius);
+        if (newScale == 1) {
+            Bitmap output = blurIn25(originalBitmap, newRadius);
+            if (recycleOriginal) {
+                originalBitmap.recycle();
+            }
+            return output;
         }
         final int width = originalBitmap.getWidth();
         final int height = originalBitmap.getHeight();
-        Bitmap input = Bitmap.createScaledBitmap(originalBitmap, (int) (width / scaleFactor), (int) (height / scaleFactor), true);
+        Bitmap input = Bitmap.createScaledBitmap(originalBitmap, (int) (width / newScale), (int) (height / newScale), true);
         if (recycleOriginal) {
             originalBitmap.recycle();
         }
-        Bitmap output = blurIn25(input, radius);
+        Bitmap output = blurIn25(input, newRadius);
         input.recycle();
         if (keepSize) {
             Bitmap outputScaled = Bitmap.createScaledBitmap(output, width, height, true);
@@ -88,7 +94,7 @@ public final class GaussianBlur implements IBlur {
     @Override
     public void recycle() {
         if (INSTANCE != null) {
-            // 关闭RenderScript对象
+            INSTANCE.gaussianBlur.destroy();
             INSTANCE.renderScript.destroy();
             INSTANCE = null;
         }
@@ -100,25 +106,20 @@ public final class GaussianBlur implements IBlur {
      * 图像越大耗时越长，测试时1280*680的图片耗时在30~60毫秒
      * 建议在子线程模糊通过Handler回调获取
      *
-     * @param originalBitmap 原图
+     * @param input 原图
      * @param radius         模糊半径
      */
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR1)
-    private Bitmap blurIn25(Bitmap originalBitmap, @FloatRange(fromInclusive = false, from = 0, to = 25) float radius) {
-        // 创建输出图片
-        Bitmap blurBitmap = Bitmap.createBitmap(originalBitmap.getWidth(), originalBitmap.getHeight(), originalBitmap.getConfig());
-        // 开辟输入内存
-        Allocation allIn = Allocation.createFromBitmap(renderScript, originalBitmap);
-        // 开辟输出内存
-        Allocation allOut = Allocation.createFromBitmap(renderScript, blurBitmap);
-        // 设置模糊半径，范围0f<radius<=25f
+    private Bitmap blurIn25(@NonNull Bitmap input, @FloatRange(fromInclusive = false, from = 0, to = 25) float radius) {
+        Bitmap output = Bitmap.createBitmap(input.getWidth(), input.getHeight(), input.getConfig());
+        Allocation aIn = Allocation.createFromBitmap(renderScript, input, Allocation.MipmapControl.MIPMAP_NONE, Allocation.USAGE_SCRIPT);
+        Allocation aOut = Allocation.createTyped(renderScript, aIn.getType());
         gaussianBlur.setRadius(radius);
-        // 设置输入内存
-        gaussianBlur.setInput(allIn);
-        // 模糊编码，并将内存填入输出内存
-        gaussianBlur.forEach(allOut);
-        // 将输出内存编码为Bitmap，图片大小必须注意
-        allOut.copyTo(blurBitmap);
-        return blurBitmap;
+        gaussianBlur.setInput(aIn);
+        gaussianBlur.forEach(aOut);
+        aOut.copyTo(output);
+        aIn.destroy();
+        aOut.destroy();
+        return output;
     }
 }

@@ -38,25 +38,25 @@ public final class FastBlur implements IBlur {
      *
      * @param originalBitmap 原图
      * @param radius         模糊半径
-     * @param scaleFactor    缩放因子（>=1）
+     * @param scale    缩放因子（>=1）
      * @return 模糊Bitmap
      */
     @Override
     public Bitmap process(@NonNull Bitmap originalBitmap,
                           @FloatRange(from = 0) float radius,
-                          @FloatRange(from = 1) float scaleFactor,
+                          @FloatRange(from = 1) float scale,
                           boolean keepSize,
                           boolean recycleOriginal) {
         final int radiusInt = (int) (radius);
         if (radiusInt == 0) {
             return originalBitmap;
         }
-        if (scaleFactor == 1) {
+        if (scale == 1) {
             return blur(originalBitmap, radiusInt);
         }
         int width = originalBitmap.getWidth();
         int height = originalBitmap.getHeight();
-        Bitmap input = Bitmap.createScaledBitmap(originalBitmap, (int) (width / scaleFactor), (int) (height / scaleFactor), true);
+        Bitmap input = Bitmap.createScaledBitmap(originalBitmap, (int) (width / scale), (int) (height / scale), true);
         if (recycleOriginal) {
             originalBitmap.recycle();
         }

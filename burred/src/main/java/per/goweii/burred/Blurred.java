@@ -9,6 +9,9 @@ import android.os.Message;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 /**
  * @author Cuizhen
  * @date 2018/4/27
@@ -25,6 +28,7 @@ public final class Blurred {
     private static Blurred INSTANCE = null;
 
     private final IBlur mBlur;
+    private final ExecutorService mExecutor;
 
     private Bitmap mOriginalBitmap = null;
 
@@ -46,6 +50,7 @@ public final class Blurred {
                 mBlur = FastBlur.get();
             }
         }
+        mExecutor = Executors.newSingleThreadExecutor();
     }
 
     public static void init(@NonNull Context context) {
@@ -60,14 +65,11 @@ public final class Blurred {
     }
 
     public static Blurred with(@NonNull Bitmap original) {
-        Blurred instance;
         if (INSTANCE == null) {
-            instance = new Blurred(null);
-        } else {
-            instance = INSTANCE;
+            INSTANCE = new Blurred(null);
         }
-        instance.mOriginalBitmap = original;
-        return instance;
+        INSTANCE.mOriginalBitmap = original;
+        return INSTANCE;
     }
 
     public Blurred percent(float percent) {
@@ -112,8 +114,8 @@ public final class Blurred {
                 radius = mRadius;
                 break;
         }
-        if (mRadius < 0) {
-            mRadius = 0;
+        if (radius < 0) {
+            radius = 0;
         }
         if (mScale < 1) {
             mScale = 1;
@@ -137,14 +139,14 @@ public final class Blurred {
                 }
             }
         };
-        new Thread(new Runnable() {
+        mExecutor.submit(new Runnable() {
             @Override
             public void run() {
                 Message msg = mCallbackHandler.obtainMessage();
                 msg.obj = blur();
                 mCallbackHandler.sendMessage(msg);
             }
-        }).start();
+        });
     }
 
     public interface Callback {
