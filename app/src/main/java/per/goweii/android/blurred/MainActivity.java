@@ -3,12 +3,15 @@ package per.goweii.android.blurred;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
+import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.CheckBox;
+import android.widget.CompoundButton;
 import android.widget.ImageView;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -32,14 +35,23 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private SeekBar sb_scale;
     private TextView tv_scale;
     private CheckBox cb_keep_size;
+    private CheckBox cb_real_time;
     private PictureSelectorHelper mHelper;
     private Bitmap mBitmapOriginal;
     private Bitmap mBitmapBlurred;
+
+    private int color1 = 0;
+    private int color2 = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        Blurred.init(MainActivity.this);
+
+        color1 = Color.parseColor("#33000000");
+        color2 = Color.parseColor("#33ff0000");
 
         iv_original = findViewById(R.id.iv_original);
         tv_original = findViewById(R.id.tv_original);
@@ -50,10 +62,20 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         sb_scale = findViewById(R.id.sb_scale);
         tv_scale = findViewById(R.id.tv_scale);
         cb_keep_size = findViewById(R.id.cb_keep_size);
+        cb_real_time = findViewById(R.id.cb_real_time);
+        cb_real_time.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                Blurred.realTimeMode(isChecked);
+            }
+        });
         sb_radius.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 tv_radius.setText("" + progress);
+                if (cb_real_time.isChecked()) {
+                    blurAndUpdateView();
+                }
             }
 
             @Override
@@ -68,6 +90,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 tv_scale.setText("" + progress);
+                if (cb_real_time.isChecked()) {
+                    blurAndUpdateView();
+                }
             }
 
             @Override
@@ -81,8 +106,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         iv_original.setOnClickListener(this);
         iv_blurred.setOnClickListener(this);
-
-        Blurred.init(MainActivity.this);
     }
 
     @Override
@@ -96,22 +119,35 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         .selectPhoto();
                 break;
             case R.id.iv_blurred:
-                long start = System.currentTimeMillis();
-                blur();
-                long end = System.currentTimeMillis();
-                Log.i(TAG, "process:" + (end - start));
-                setInfo(true, end - start);
-                if (mBitmapBlurred != null) {
-                    Glide.with(MainActivity.this)
-                            .load(mBitmapBlurred)
-                            .into(iv_blurred);
-                }
+                blurAndUpdateView();
                 break;
         }
     }
 
+    private void blurAndUpdateView() {
+        long start = System.currentTimeMillis();
+        blur();
+        long end = System.currentTimeMillis();
+        long off = end - start;
+        Log.i(TAG, "process:" + off);
+        setInfo(true, end - start);
+        if (off <= 16) {
+            tv_blurred.setBackgroundColor(color1);
+        } else {
+            tv_blurred.setBackgroundColor(color2);
+        }
+        if (mBitmapBlurred != null) {
+            iv_blurred.setImageBitmap(mBitmapBlurred);
+        }
+    }
+
+    private Blurred mBlurred = null;
+
     private void blur() {
-        mBitmapBlurred = Blurred.with(mBitmapOriginal)
+        if (mBlurred == null) {
+            mBlurred = new Blurred();
+        }
+        mBitmapBlurred = mBlurred.bitmap(mBitmapOriginal)
                 .keepSize(cb_keep_size.isChecked())
                 .recycleOriginal(false)
                 .scale(sb_scale.getProgress())
@@ -130,6 +166,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 Glide.with(MainActivity.this)
                         .load(mBitmapOriginal)
                         .into(iv_original);
+                iv_blurred.setImageDrawable(new ColorDrawable(Color.TRANSPARENT));
 
                 setInfo(false, 0);
             }

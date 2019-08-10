@@ -39,9 +39,6 @@ public final class Blurred {
     private Callback mCallback = null;
     private Handler mCallbackHandler = null;
 
-    private Blurred() {
-    }
-
     public static void init(Context context) {
         if (sBlur == null) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
@@ -97,13 +94,6 @@ public final class Blurred {
         return with(view.getDrawingCache());
     }
 
-    private Blurred bitmap(Bitmap original) {
-        Utils.requireNonNull(original, "待模糊Bitmap不能为空");
-        reset();
-        mOriginalBitmap = original;
-        return this;
-    }
-
     private void reset() {
         if (mOriginalBitmap != null) {
             if (!mOriginalBitmap.isRecycled()) {
@@ -117,6 +107,13 @@ public final class Blurred {
         mScale = 0;
         mKeepSize = false;
         mRecycleOriginal = false;
+    }
+
+    public Blurred bitmap(Bitmap original) {
+        Utils.requireNonNull(original, "待模糊Bitmap不能为空");
+        reset();
+        mOriginalBitmap = original;
+        return this;
     }
 
     public Blurred percent(float percent) {
@@ -147,6 +144,7 @@ public final class Blurred {
     }
 
     public Bitmap blur() {
+        Utils.requireNonNull(mOriginalBitmap, "待模糊Bitmap不能为空");
         float radius = 0;
         switch (mMode) {
             default:
