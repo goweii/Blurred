@@ -47,8 +47,17 @@ public final class FastBlur implements IBlur {
                           final boolean recycleOriginal) {
         Utils.requireNonNull(originalBitmap, "待模糊Bitmap不能为空");
         final int newRadius = radius < 0 ? 0 : (int) radius;
-        if (newRadius == 0) return originalBitmap;
-        final float newScale = scale < 1 ? 1 : scale;
+        final float newScale = scale <= 0 ? 1 : scale;
+        if (newRadius == 0) {
+            if (newScale == 1) {
+                return originalBitmap;
+            }
+            Bitmap scaleBitmap = Utils.scaleBitmap(originalBitmap, newScale);
+            if (recycleOriginal) {
+                originalBitmap.recycle();
+            }
+            return scaleBitmap;
+        }
         if (newScale == 1) {
             Bitmap output = blur(originalBitmap, newRadius);
             if (recycleOriginal) {
@@ -58,7 +67,7 @@ public final class FastBlur implements IBlur {
         }
         final int width = originalBitmap.getWidth();
         final int height = originalBitmap.getHeight();
-        Bitmap input = Bitmap.createScaledBitmap(originalBitmap, (int) (width / newScale), (int) (height / newScale), true);
+        Bitmap input = Utils.scaleBitmap(originalBitmap, newScale);
         if (recycleOriginal) {
             originalBitmap.recycle();
         }
@@ -67,7 +76,7 @@ public final class FastBlur implements IBlur {
         if (!keepSize) {
             return output;
         }
-        Bitmap outputScaled = Bitmap.createScaledBitmap(output, width, height, true);
+        Bitmap outputScaled = Utils.scaleBitmap(output, width, height);
         output.recycle();
         return outputScaled;
     }

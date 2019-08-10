@@ -2,11 +2,14 @@ package per.goweii.burred;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.view.View;
+import android.view.ViewTreeObserver;
+import android.widget.ImageView;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -20,22 +23,22 @@ import java.util.concurrent.Executors;
  */
 public final class Blurred {
 
-    private static final int MODE_NONE = 0;
-    private static final int MODE_PERCENT = 1;
-    private static final int MODE_RADIUS = 2;
-
     private static IBlur sBlur;
     private static ExecutorService sExecutor;
 
-    private int mMode = MODE_NONE;
     private float mPercent = 0;
     private float mRadius = 0;
-    private float mScale = 0;
+    private float mScale = 1;
     private boolean mKeepSize = false;
     private boolean mRecycleOriginal = false;
 
+    private int mBackgroundColor = Color.TRANSPARENT;
+    private int mForegroundColor = Color.TRANSPARENT;
     private Bitmap mOriginalBitmap = null;
+    private View mViewFrom = null;
+    private ImageView mViewInto = null;
 
+    private SnapshotInterceptor mSnapshotInterceptor = null;
     private Callback mCallback = null;
     private Handler mCallbackHandler = null;
 
@@ -86,44 +89,54 @@ public final class Blurred {
     }
 
     public static Blurred with(View view) {
-        Utils.requireNonNull(view, "待模糊View不能为空");
-        view.setDrawingCacheEnabled(true);
-        view.buildDrawingCache(true);
-        view.destroyDrawingCache();
-        view.setDrawingCacheQuality(View.DRAWING_CACHE_QUALITY_LOW);
-        return with(view.getDrawingCache());
+        return new Blurred().view(view);
     }
 
-    private void reset() {
-        if (mOriginalBitmap != null) {
-            if (!mOriginalBitmap.isRecycled()) {
-                mOriginalBitmap.recycle();
-            }
-            mOriginalBitmap = null;
-        }
-        mMode = MODE_NONE;
+    public void reset() {
         mPercent = 0;
         mRadius = 0;
-        mScale = 0;
+        mScale = 1;
         mKeepSize = false;
         mRecycleOriginal = false;
+        mOriginalBitmap = null;
+        if (mViewFrom != null) {
+            if (mOnPreDrawListener != null) {
+                mViewFrom.getViewTreeObserver().removeOnPreDrawListener(mOnPreDrawListener);
+                mOnPreDrawListener = null;
+            }
+            mViewFrom = null;
+        }
+        mViewInto = null;
+    }
+
+    public Blurred view(View view) {
+        reset();
+        mViewFrom = view;
+        return this;
     }
 
     public Blurred bitmap(Bitmap original) {
-        Utils.requireNonNull(original, "待模糊Bitmap不能为空");
         reset();
         mOriginalBitmap = original;
         return this;
     }
 
+    public Blurred backgroundColor(int color) {
+        mBackgroundColor = color;
+        return this;
+    }
+
+    public Blurred foregroundColor(int color) {
+        mForegroundColor = color;
+        return this;
+    }
+
     public Blurred percent(float percent) {
-        this.mMode = MODE_PERCENT;
         this.mPercent = percent;
         return this;
     }
 
     public Blurred radius(float radius) {
-        this.mMode = MODE_RADIUS;
         this.mRadius = radius;
         return this;
     }
@@ -144,25 +157,66 @@ public final class Blurred {
     }
 
     public Bitmap blur() {
-        Utils.requireNonNull(mOriginalBitmap, "待模糊Bitmap不能为空");
-        float radius = 0;
-        switch (mMode) {
-            default:
-                break;
-            case MODE_PERCENT:
-                int w = mOriginalBitmap.getWidth();
-                int h = mOriginalBitmap.getHeight();
-                int min = Math.min(w, h);
-                radius = min * mPercent;
-                break;
-            case MODE_RADIUS:
-                radius = mRadius;
-                break;
+        if (mViewFrom == null && mOriginalBitmap == null) {
+            throw new NullPointerException("待模糊View和Bitmap不能同时为空");
         }
-        return requireBlur().process(mOriginalBitmap, radius, mScale, mKeepSize, mRecycleOriginal);
+        float scale;
+        if (mScale > 0) {
+            scale = mScale;
+        } else {
+            scale = 1;
+        }
+        float radius = mRadius;
+        if (mPercent > 0) {
+            final int w;
+            final int h;
+            if (mViewFrom != null) {
+                w = mViewFrom.getWidth();
+                h = mViewFrom.getHeight();
+            } else {
+                w = mOriginalBitmap.getWidth();
+                h = mOriginalBitmap.getHeight();
+            }
+            radius = Math.min(w, h) * mPercent;
+        }
+        if (mViewFrom == null) {
+            return requireBlur().process(mOriginalBitmap, radius, scale, mKeepSize, mRecycleOriginal);
+        }
+        if (radius > 25) {
+            scale = scale / (radius / 25);
+            radius = 25;
+        }
+        if (mSnapshotInterceptor != null) {
+            Bitmap bitmap = mSnapshotInterceptor.snapshot(mViewFrom, mViewInto, mBackgroundColor, mForegroundColor, scale);
+            return requireBlur().process(bitmap, radius, 1, mKeepSize, mRecycleOriginal);
+        }
+        Bitmap bitmap = Utils.snapshot(mViewFrom, scale);
+        return requireBlur().process(bitmap, radius, 1, mKeepSize, mRecycleOriginal);
     }
 
-    public void blur(Callback callback) {
+    private ViewTreeObserver.OnPreDrawListener mOnPreDrawListener = null;
+
+    public void blur(final ImageView into) {
+        Utils.requireNonNull(mViewFrom, "实时高斯模糊时待模糊View不能为空");
+        Utils.requireNonNull(into, "ImageView不能为空");
+        mViewInto = into;
+        if (mOnPreDrawListener == null) {
+            mOnPreDrawListener = new ViewTreeObserver.OnPreDrawListener() {
+                @Override
+                public boolean onPreDraw() {
+                    keepSize(false);
+                    recycleOriginal(true);
+                    if (mViewInto != null) {
+                        mViewInto.setImageBitmap(blur());
+                    }
+                    return true;
+                }
+            };
+        }
+        mViewFrom.getViewTreeObserver().addOnPreDrawListener(mOnPreDrawListener);
+    }
+
+    public void blur(final Callback callback) {
         Utils.requireNonNull(callback, "Callback不能为空");
         mCallback = callback;
         mCallbackHandler = new Handler(Looper.getMainLooper()) {
@@ -181,6 +235,10 @@ public final class Blurred {
                 mCallbackHandler.sendMessage(msg);
             }
         });
+    }
+
+    public interface SnapshotInterceptor {
+        Bitmap snapshot(View from, ImageView into, int backgroundColor, int foregroundColor, float scale);
     }
 
     public interface Callback {
