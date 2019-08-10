@@ -1,13 +1,11 @@
 package per.goweii.burred;
 
-import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
-import android.support.annotation.NonNull;
 import android.view.View;
 
 import java.util.concurrent.ExecutorService;
@@ -26,51 +24,72 @@ public final class Blurred {
     private static final int MODE_PERCENT = 1;
     private static final int MODE_RADIUS = 2;
 
-    private static Blurred INSTANCE = null;
-
-    private final IBlur mBlur;
-    private final ExecutorService mExecutor;
-
-    private Bitmap mOriginalBitmap = null;
+    private static IBlur sBlur;
+    private static ExecutorService sExecutor;
 
     private int mMode = MODE_NONE;
-
     private float mPercent = 0;
     private float mRadius = 0;
     private float mScale = 0;
     private boolean mKeepSize = false;
     private boolean mRecycleOriginal = false;
 
-    private Blurred(@NonNull Context context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
-            mBlur = GaussianBlur.get(context);
-        } else {
-            mBlur = FastBlur.get();
-        }
-        mExecutor = Executors.newSingleThreadExecutor();
+    private Bitmap mOriginalBitmap = null;
+
+    private Callback mCallback = null;
+    private Handler mCallbackHandler = null;
+
+    private Blurred() {
     }
 
-    public static void init(@NonNull Context context) {
-        if (INSTANCE == null) {
-            INSTANCE = new Blurred(context);
+    public static void init(Context context) {
+        if (sBlur == null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+                sBlur = GaussianBlur.get(context);
+            } else {
+                sBlur = FastBlur.get();
+            }
+        }
+    }
+
+    public static void realTimeMode(boolean realTimeMode) {
+        IBlur iBlur = requireBlur();
+        if (iBlur instanceof GaussianBlur) {
+            GaussianBlur gaussianBlur = (GaussianBlur) sBlur;
+            gaussianBlur.realTimeMode(realTimeMode);
         }
     }
 
     public static void recycle() {
-        if (INSTANCE != null) {
-            INSTANCE.mBlur.recycle();
-            INSTANCE = null;
+        if (sBlur != null) {
+            sBlur.recycle();
+            sBlur = null;
+        }
+        if (sExecutor != null) {
+            if (!sExecutor.isShutdown()) {
+                sExecutor.shutdown();
+            }
+            sExecutor = null;
         }
     }
 
-    public static Blurred with(@NonNull Bitmap original) {
-        if (INSTANCE == null) {
-            throw new RuntimeException("Blurred未初始化");
-        }
-        return INSTANCE.bitmap(original);
+    private static IBlur requireBlur() {
+        return Utils.requireNonNull(sBlur, "Blurred未初始化");
     }
 
-    public static Blurred with(@NonNull View view) {
+    private static ExecutorService requireExecutor() {
+        if (sExecutor == null || sExecutor.isShutdown()) {
+            sExecutor = Executors.newSingleThreadExecutor();
+        }
+        return sExecutor;
+    }
+
+    public static Blurred with(Bitmap original) {
+        return new Blurred().bitmap(original);
+    }
+
+    public static Blurred with(View view) {
+        Utils.requireNonNull(view, "待模糊View不能为空");
         view.setDrawingCacheEnabled(true);
         view.buildDrawingCache(true);
         view.destroyDrawingCache();
@@ -78,9 +97,26 @@ public final class Blurred {
         return with(view.getDrawingCache());
     }
 
-    private Blurred bitmap(@NonNull Bitmap original){
+    private Blurred bitmap(Bitmap original) {
+        Utils.requireNonNull(original, "待模糊Bitmap不能为空");
+        reset();
         mOriginalBitmap = original;
         return this;
+    }
+
+    private void reset() {
+        if (mOriginalBitmap != null) {
+            if (!mOriginalBitmap.isRecycled()) {
+                mOriginalBitmap.recycle();
+            }
+            mOriginalBitmap = null;
+        }
+        mMode = MODE_NONE;
+        mPercent = 0;
+        mRadius = 0;
+        mScale = 0;
+        mKeepSize = false;
+        mRecycleOriginal = false;
     }
 
     public Blurred percent(float percent) {
@@ -125,36 +161,25 @@ public final class Blurred {
                 radius = mRadius;
                 break;
         }
-        if (radius < 0) {
-            radius = 0;
-        }
-        if (mScale < 1) {
-            mScale = 1;
-        }
-        return mBlur.process(mOriginalBitmap, radius, mScale, mKeepSize, mRecycleOriginal);
+        return requireBlur().process(mOriginalBitmap, radius, mScale, mKeepSize, mRecycleOriginal);
     }
 
-    private Callback mCallback = null;
-    private Handler mCallbackHandler = null;
-
-    @SuppressLint("HandlerLeak")
     public void blur(Callback callback) {
+        Utils.requireNonNull(callback, "Callback不能为空");
         mCallback = callback;
         mCallbackHandler = new Handler(Looper.getMainLooper()) {
             @Override
             public void handleMessage(Message msg) {
                 mCallbackHandler = null;
-                Bitmap blur = (Bitmap) msg.obj;
-                if (mCallback != null) {
-                    mCallback.down(blur);
-                }
+                mCallback.down((Bitmap) msg.obj);
             }
         };
-        mExecutor.submit(new Runnable() {
+        requireExecutor().submit(new Runnable() {
             @Override
             public void run() {
+                Bitmap bitmap = blur();
                 Message msg = mCallbackHandler.obtainMessage();
-                msg.obj = blur();
+                msg.obj = bitmap;
                 mCallbackHandler.sendMessage(msg);
             }
         });

@@ -1,8 +1,6 @@
 package per.goweii.burred;
 
 import android.graphics.Bitmap;
-import android.support.annotation.FloatRange;
-import android.support.annotation.NonNull;
 
 /**
  * 毛玻璃处理
@@ -20,9 +18,9 @@ public final class FastBlur implements IBlur {
     private FastBlur() {
     }
 
-    public static FastBlur get(){
+    public static FastBlur get() {
         if (INSTANCE == null) {
-            synchronized (FastBlur.class){
+            synchronized (FastBlur.class) {
                 if (INSTANCE == null) {
                     INSTANCE = new FastBlur();
                 }
@@ -38,36 +36,40 @@ public final class FastBlur implements IBlur {
      *
      * @param originalBitmap 原图
      * @param radius         模糊半径
-     * @param scale    缩放因子（>=1）
+     * @param scale          缩放因子（>=1）
      * @return 模糊Bitmap
      */
     @Override
-    public Bitmap process(@NonNull Bitmap originalBitmap,
-                          @FloatRange(from = 0) float radius,
-                          @FloatRange(from = 1) float scale,
-                          boolean keepSize,
-                          boolean recycleOriginal) {
-        final int radiusInt = (int) (radius);
-        if (radiusInt == 0) {
-            return originalBitmap;
+    public Bitmap process(final Bitmap originalBitmap,
+                          final float radius,
+                          final float scale,
+                          final boolean keepSize,
+                          final boolean recycleOriginal) {
+        Utils.requireNonNull(originalBitmap, "待模糊Bitmap不能为空");
+        final int newRadius = radius < 0 ? 0 : (int) radius;
+        if (newRadius == 0) return originalBitmap;
+        final float newScale = scale < 1 ? 1 : scale;
+        if (newScale == 1) {
+            Bitmap output = blur(originalBitmap, newRadius);
+            if (recycleOriginal) {
+                originalBitmap.recycle();
+            }
+            return output;
         }
-        if (scale == 1) {
-            return blur(originalBitmap, radiusInt);
-        }
-        int width = originalBitmap.getWidth();
-        int height = originalBitmap.getHeight();
-        Bitmap input = Bitmap.createScaledBitmap(originalBitmap, (int) (width / scale), (int) (height / scale), true);
+        final int width = originalBitmap.getWidth();
+        final int height = originalBitmap.getHeight();
+        Bitmap input = Bitmap.createScaledBitmap(originalBitmap, (int) (width / newScale), (int) (height / newScale), true);
         if (recycleOriginal) {
             originalBitmap.recycle();
         }
-        Bitmap output = blur(input, radiusInt);
+        Bitmap output = blur(input, newRadius);
         input.recycle();
-        if (keepSize) {
-            Bitmap outputScaled = Bitmap.createScaledBitmap(output, width, height, true);
-            output.recycle();
-            output = outputScaled;
+        if (!keepSize) {
+            return output;
         }
-        return output;
+        Bitmap outputScaled = Bitmap.createScaledBitmap(output, width, height, true);
+        output.recycle();
+        return outputScaled;
     }
 
     @Override

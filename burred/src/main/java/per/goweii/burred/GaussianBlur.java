@@ -5,11 +5,10 @@ import android.graphics.Bitmap;
 import android.os.Build;
 import android.renderscript.Allocation;
 import android.renderscript.Element;
+import android.renderscript.RSIllegalArgumentException;
+import android.renderscript.RSInvalidStateException;
 import android.renderscript.RenderScript;
 import android.renderscript.ScriptIntrinsicBlur;
-import android.support.annotation.FloatRange;
-import android.support.annotation.NonNull;
-import android.support.annotation.RequiresApi;
 
 /**
  * @author Cuizhen
@@ -21,19 +20,26 @@ import android.support.annotation.RequiresApi;
 public final class GaussianBlur implements IBlur {
     private static GaussianBlur INSTANCE = null;
 
+    private boolean mRealTimeMode = false;
+
     private final RenderScript renderScript;
     private final ScriptIntrinsicBlur gaussianBlur;
 
-    @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR1)
+    private Allocation mInput = null;
+    private Allocation mOutput = null;
+
     private GaussianBlur(Context context) {
+        Utils.requireNonNull(context);
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR1) {
+            throw new RuntimeException("Call requires API level " + Build.VERSION_CODES.JELLY_BEAN_MR1 + " (current min is " + Build.VERSION.SDK_INT + ")");
+        }
         renderScript = RenderScript.create(context.getApplicationContext());
         gaussianBlur = ScriptIntrinsicBlur.create(renderScript, Element.U8_4(renderScript));
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR1)
-    public static GaussianBlur get(Context context){
+    public static GaussianBlur get(Context context) {
         if (INSTANCE == null) {
-            synchronized (GaussianBlur.class){
+            synchronized (GaussianBlur.class) {
                 if (INSTANCE == null) {
                     INSTANCE = new GaussianBlur(context);
                 }
@@ -42,31 +48,35 @@ public final class GaussianBlur implements IBlur {
         return INSTANCE;
     }
 
+    public GaussianBlur realTimeMode(boolean realTimeMode) {
+        mRealTimeMode = realTimeMode;
+        return this;
+    }
+
     /**
+     * RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR1)
      * 模糊
      * 采用系统自带的RenderScript
      * 输出图与原图参数相同
      *
      * @param originalBitmap 原图
-     * @param scale    缩放因子（>=1）
+     * @param scale          缩放因子（>=1）
      * @param radius         模糊半径
      * @return 模糊Bitmap
      */
-    @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR1)
     @Override
-    public Bitmap process(@NonNull Bitmap originalBitmap,
-                          @FloatRange(from = 0) float radius,
-                          @FloatRange(from = 1) float scale,
-                          boolean keepSize,
-                          boolean recycleOriginal) {
-        if (radius <= 0) {
-            return originalBitmap;
-        }
-        float newScale = scale;
-        float newRadius = radius;
-        if (radius > 25) {
+    public Bitmap process(final Bitmap originalBitmap,
+                          final float radius,
+                          final float scale,
+                          final boolean keepSize,
+                          final boolean recycleOriginal) {
+        Utils.requireNonNull(originalBitmap, "待模糊Bitmap不能为空");
+        float newRadius = radius < 0 ? 0 : radius;
+        if (newRadius == 0) return originalBitmap;
+        float newScale = scale < 1 ? 1 : scale;
+        if (newRadius > 25) {
             newRadius = 25;
-            newScale = scale * (radius / 25);
+            newScale = newScale * (newRadius / 25);
         }
         if (newScale == 1) {
             Bitmap output = blurIn25(originalBitmap, newRadius);
@@ -83,43 +93,100 @@ public final class GaussianBlur implements IBlur {
         }
         Bitmap output = blurIn25(input, newRadius);
         input.recycle();
-        if (keepSize) {
-            Bitmap outputScaled = Bitmap.createScaledBitmap(output, width, height, true);
-            output.recycle();
-            output = outputScaled;
+        if (!keepSize) {
+            return output;
         }
-        return output;
+        Bitmap outputScaled = Bitmap.createScaledBitmap(output, width, height, true);
+        output.recycle();
+        return outputScaled;
     }
 
     @Override
     public void recycle() {
-        if (INSTANCE != null) {
-            INSTANCE.gaussianBlur.destroy();
-            INSTANCE.renderScript.destroy();
-            INSTANCE = null;
-        }
+        gaussianBlur.destroy();
+        renderScript.destroy();
+        destroyAllocations();
+        INSTANCE = null;
     }
 
     /**
+     * RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR1)
+     * <p>
      * 高斯模糊
      * 采用系统自带的RenderScript
      * 图像越大耗时越长，测试时1280*680的图片耗时在30~60毫秒
      * 建议在子线程模糊通过Handler回调获取
      *
-     * @param input 原图
-     * @param radius         模糊半径
+     * @param input  原图
+     * @param radius 模糊半径
      */
-    @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR1)
-    private Bitmap blurIn25(@NonNull Bitmap input, @FloatRange(fromInclusive = false, from = 0, to = 25) float radius) {
-        Bitmap output = Bitmap.createBitmap(input.getWidth(), input.getHeight(), input.getConfig());
-        Allocation aIn = Allocation.createFromBitmap(renderScript, input, Allocation.MipmapControl.MIPMAP_NONE, Allocation.USAGE_SCRIPT);
-        Allocation aOut = Allocation.createTyped(renderScript, aIn.getType());
-        gaussianBlur.setRadius(radius);
-        gaussianBlur.setInput(aIn);
-        gaussianBlur.forEach(aOut);
-        aOut.copyTo(output);
-        aIn.destroy();
-        aOut.destroy();
-        return output;
+    private Bitmap blurIn25(final Bitmap input, final float radius) {
+        Utils.requireNonNull(input, "待模糊Bitmap不能为空");
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR1) {
+            throw new RuntimeException("Call requires API level " + Build.VERSION_CODES.JELLY_BEAN_MR1 + " (current min is " + Build.VERSION.SDK_INT + ")");
+        }
+        final float newRadius;
+        if (radius < 0) {
+            newRadius = 0;
+        } else if (radius > 25) {
+            newRadius = 25;
+        } else {
+            newRadius = radius;
+        }
+        if (mRealTimeMode) {
+            tryReuseAllocation(input);
+        } else {
+            createAllocation(input);
+        }
+        try {
+            gaussianBlur.setRadius(newRadius);
+            gaussianBlur.setInput(mInput);
+            gaussianBlur.forEach(mOutput);
+            Bitmap output = Bitmap.createBitmap(input.getWidth(), input.getHeight(), input.getConfig());
+            mOutput.copyTo(output);
+            return output;
+        } finally {
+            if (!mRealTimeMode) {
+                destroyAllocations();
+            }
+        }
+    }
+
+    private void destroyAllocations() {
+        if (mInput != null) {
+            try {
+                mInput.destroy();
+                mInput = null;
+            } catch (RSInvalidStateException ignore) {
+            }
+        }
+        if (mOutput != null) {
+            try {
+                mOutput.destroy();
+                mOutput = null;
+            } catch (RSInvalidStateException ignore) {
+            }
+        }
+    }
+
+    private void tryReuseAllocation(Bitmap bitmap) {
+        if (mInput == null) {
+            createAllocation(bitmap);
+        }
+        if (mInput.getType().getX() != bitmap.getWidth() || mInput.getType().getY() != bitmap.getHeight()) {
+            createAllocation(bitmap);
+        }
+        try {
+            mInput.copyFrom(bitmap);
+        } catch (RSIllegalArgumentException ignore) {
+            destroyAllocations();
+            createAllocation(bitmap);
+        }
+    }
+
+    private void createAllocation(Bitmap bitmap) {
+        destroyAllocations();
+        mInput = Allocation.createFromBitmap(renderScript, bitmap, Allocation.MipmapControl.MIPMAP_NONE, Allocation.USAGE_SCRIPT);
+        mOutput = Allocation.createTyped(renderScript, mInput.getType());
     }
 }

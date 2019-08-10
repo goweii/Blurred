@@ -1,8 +1,6 @@
 package per.goweii.burred;
 
 import android.graphics.Bitmap;
-import android.support.annotation.FloatRange;
-import android.support.annotation.NonNull;
 
 /**
  * 描述：
@@ -21,11 +19,11 @@ public interface IBlur {
      * @param recycleOriginal 回收原图
      * @return 模糊图
      */
-    Bitmap process(@NonNull Bitmap originalBitmap,
-                   @FloatRange(from = 0) float radius,
-                   @FloatRange(from = 1) float scale,
-                   boolean keepSize,
-                   boolean recycleOriginal);
+    Bitmap process(final Bitmap originalBitmap,
+                   final float radius,
+                   final float scale,
+                   final boolean keepSize,
+                   final boolean recycleOriginal);
 
     /**
      * 回收资源
