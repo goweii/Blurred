@@ -50,6 +50,9 @@ public final class GaussianBlur implements IBlur {
 
     public GaussianBlur realTimeMode(boolean realTimeMode) {
         mRealTimeMode = realTimeMode;
+        if (!mRealTimeMode) {
+            destroyAllocations();
+        }
         return this;
     }
 

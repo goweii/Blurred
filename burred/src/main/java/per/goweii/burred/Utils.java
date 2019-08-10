@@ -4,6 +4,8 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Rect;
 import android.view.View;
+import android.view.ViewGroup;
+import android.widget.ImageView;
 
 /**
  * @author CuiZhen
@@ -26,16 +28,7 @@ class Utils {
     }
 
     static Bitmap snapshot(View view, float scale) {
-        final float newScale = scale > 0 ? scale : 1;
-        final int w = view.getWidth();
-        final int h = view.getHeight();
-        Bitmap output = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(output);
-        canvas.save();
-        canvas.scale(newScale, newScale);
-        view.draw(canvas);
-        canvas.restore();
-        return output;
+        return snapshot(view, 0, scale);
     }
 
     static Bitmap snapshot(View view, int bgColor) {
@@ -43,17 +36,70 @@ class Utils {
     }
 
     static Bitmap snapshot(View view, int bgColor, float scale) {
+        return snapshot(view, bgColor, 0, scale);
+    }
+
+    static Bitmap snapshot(View from, int bgColor, int fgColor, float scale) {
         final float newScale = scale > 0 ? scale : 1;
-        final int w = view.getWidth();
-        final int h = view.getHeight();
-        Bitmap output = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+        final int w = (int) (from.getWidth() * newScale);
+        final int h = (int) (from.getHeight() * newScale);
+        Bitmap output = Bitmap.createBitmap(w <= 0 ? 1 : w, h <= 0 ? 1 : h, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(output);
         canvas.save();
         canvas.scale(newScale, newScale);
-        canvas.drawColor(bgColor);
-        view.draw(canvas);
+        if (bgColor != 0) {
+            canvas.drawColor(bgColor);
+        }
+        from.draw(canvas);
+        if (fgColor != 0) {
+            canvas.drawColor(fgColor);
+        }
         canvas.restore();
         return output;
+    }
+
+    static Bitmap clip(Bitmap bitmap, View from, ImageView into) {
+        int[] lf = new int[2];
+        from.getLocationOnScreen(lf);
+        int[] lt = new int[2];
+        into.getLocationOnScreen(lt);
+        int bw = bitmap.getWidth();
+        int bh = bitmap.getHeight();
+        float sx = (float) bw / (float) from.getWidth();
+        float sh = (float) bh / (float) from.getHeight();
+        Bitmap output = Bitmap.createBitmap(into.getWidth(), into.getHeight(), Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(output);
+        Rect rf = new Rect(
+                (int) ((lt[0] - lf[0]) * sx),
+                (int) ((lt[1] - lf[1]) * sh),
+                (int) ((lt[0] - lf[0]) * sx + into.getWidth() * sx),
+                (int) ((lt[1] - lf[1]) * sh + into.getHeight() * sh)
+        );
+        Rect rt = new Rect(0, 0, into.getWidth(), into.getHeight());
+        canvas.drawBitmap(bitmap, rf, rt, null);
+        return output;
+    }
+
+    private static void draw(Canvas canvas, View from, ImageView into) throws StopDrawException {
+        if (into == null) {
+            from.draw(canvas);
+        }
+        if (from == into) {
+            throw new StopDrawException();
+        }
+        if (from instanceof ViewGroup) {
+            ViewGroup viewGroup = (ViewGroup) from;
+            int count = viewGroup.getChildCount();
+            for (int i = 0; i < count; i++) {
+                View view = viewGroup.getChildAt(i);
+                draw(canvas, view, into);
+            }
+        } else {
+            from.draw(canvas);
+        }
+    }
+
+    private static class StopDrawException extends Exception {
     }
 
     static Bitmap scaleBitmap(Bitmap bitmap, float scale) {

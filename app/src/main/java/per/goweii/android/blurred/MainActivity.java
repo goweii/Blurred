@@ -9,6 +9,8 @@ import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
@@ -109,6 +111,20 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_main, menu);
+        return super.onCreateOptionsMenu(menu);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.action_real_time_blur) {
+            startActivity(new Intent(this, RealTimeBlurActivity.class));
+        }
+        return true;
+    }
+
+    @Override
     public void onClick(View v) {
         switch (v.getId()) {
             default:
@@ -150,7 +166,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         mBitmapBlurred = mBlurred.bitmap(mBitmapOriginal)
                 .keepSize(cb_keep_size.isChecked())
                 .recycleOriginal(false)
-                .scale(sb_scale.getProgress())
+                .scale(1F / sb_scale.getProgress())
                 .radius(sb_radius.getProgress())
                 .blur();
     }

@@ -39,6 +39,7 @@ public final class Blurred {
     private ImageView mViewInto = null;
 
     private SnapshotInterceptor mSnapshotInterceptor = null;
+    private Listener mListener = null;
     private Callback mCallback = null;
     private Handler mCallbackHandler = null;
 
@@ -156,9 +157,22 @@ public final class Blurred {
         return this;
     }
 
+    public Blurred snapshotInterceptor(SnapshotInterceptor interceptor) {
+        this.mSnapshotInterceptor = interceptor;
+        return this;
+    }
+
+    public Blurred listener(Listener listener) {
+        this.mListener = listener;
+        return this;
+    }
+
     public Bitmap blur() {
         if (mViewFrom == null && mOriginalBitmap == null) {
             throw new NullPointerException("待模糊View和Bitmap不能同时为空");
+        }
+        if (mListener != null) {
+            mListener.begin();
         }
         float scale;
         if (mScale > 0) {
@@ -179,19 +193,26 @@ public final class Blurred {
             }
             radius = Math.min(w, h) * mPercent;
         }
+        final Bitmap blurredBitmap;
         if (mViewFrom == null) {
-            return requireBlur().process(mOriginalBitmap, radius, scale, mKeepSize, mRecycleOriginal);
+            blurredBitmap = requireBlur().process(mOriginalBitmap, radius, scale, mKeepSize, mRecycleOriginal);
+        } else {
+            if (radius > 25) {
+                scale = scale / (radius / 25);
+                radius = 25;
+            }
+            if (mSnapshotInterceptor != null) {
+                Bitmap bitmap = mSnapshotInterceptor.snapshot(mViewFrom, mBackgroundColor, mForegroundColor, scale);
+                blurredBitmap = requireBlur().process(bitmap, radius, 1, mKeepSize, mRecycleOriginal);
+            } else {
+                Bitmap bitmap = Utils.snapshot(mViewFrom, mBackgroundColor, mForegroundColor, scale);
+                blurredBitmap = requireBlur().process(bitmap, radius, 1, mKeepSize, mRecycleOriginal);
+            }
         }
-        if (radius > 25) {
-            scale = scale / (radius / 25);
-            radius = 25;
+        if (mListener != null) {
+            mListener.end();
         }
-        if (mSnapshotInterceptor != null) {
-            Bitmap bitmap = mSnapshotInterceptor.snapshot(mViewFrom, mViewInto, mBackgroundColor, mForegroundColor, scale);
-            return requireBlur().process(bitmap, radius, 1, mKeepSize, mRecycleOriginal);
-        }
-        Bitmap bitmap = Utils.snapshot(mViewFrom, scale);
-        return requireBlur().process(bitmap, radius, 1, mKeepSize, mRecycleOriginal);
+        return blurredBitmap;
     }
 
     private ViewTreeObserver.OnPreDrawListener mOnPreDrawListener = null;
@@ -204,10 +225,14 @@ public final class Blurred {
             mOnPreDrawListener = new ViewTreeObserver.OnPreDrawListener() {
                 @Override
                 public boolean onPreDraw() {
+                    realTimeMode(true);
                     keepSize(false);
                     recycleOriginal(true);
                     if (mViewInto != null) {
-                        mViewInto.setImageBitmap(blur());
+                        Bitmap blur = blur();
+                        Bitmap clip = Utils.clip(blur, mViewFrom, mViewInto);
+                        blur.recycle();
+                        mViewInto.setImageBitmap(clip);
                     }
                     return true;
                 }
@@ -238,10 +263,16 @@ public final class Blurred {
     }
 
     public interface SnapshotInterceptor {
-        Bitmap snapshot(View from, ImageView into, int backgroundColor, int foregroundColor, float scale);
+        Bitmap snapshot(View from, int backgroundColor, int foregroundColor, float scale);
     }
 
     public interface Callback {
         void down(Bitmap bitmap);
+    }
+
+    public interface Listener {
+        void begin();
+
+        void end();
     }
 }
