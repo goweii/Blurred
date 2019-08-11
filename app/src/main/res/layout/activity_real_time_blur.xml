@@ -47,6 +47,13 @@
             android:layout_height="match_parent"
             android:scaleType="fitXY" />
 
+        <CheckBox
+            android:id="@+id/cb_anti_alias"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:alpha="0.3"
+            android:text="抗锯齿" />
+
         <TextView
             android:id="@+id/tv_fps"
             android:layout_width="wrap_content"

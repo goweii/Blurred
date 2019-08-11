@@ -29,6 +29,7 @@ public final class Blurred {
     private float mPercent = 0;
     private float mRadius = 0;
     private float mScale = 1;
+    private boolean mAntiAlias = true;
     private boolean mKeepSize = false;
     private boolean mRecycleOriginal = false;
 
@@ -94,6 +95,7 @@ public final class Blurred {
     }
 
     public void reset() {
+        mAntiAlias = true;
         mPercent = 0;
         mRadius = 0;
         mScale = 1;
@@ -108,6 +110,8 @@ public final class Blurred {
             mViewFrom = null;
         }
         mViewInto = null;
+        mBackgroundColor = Color.TRANSPARENT;
+        mForegroundColor = Color.TRANSPARENT;
     }
 
     public Blurred view(View view) {
@@ -149,6 +153,11 @@ public final class Blurred {
 
     public Blurred keepSize(boolean keepSize) {
         this.mKeepSize = keepSize;
+        return this;
+    }
+
+    public Blurred antiAlias(boolean antiAlias) {
+        this.mAntiAlias = antiAlias;
         return this;
     }
 
@@ -205,7 +214,7 @@ public final class Blurred {
                 Bitmap bitmap = mSnapshotInterceptor.snapshot(mViewFrom, mBackgroundColor, mForegroundColor, scale);
                 blurredBitmap = requireBlur().process(bitmap, radius, 1, mKeepSize, mRecycleOriginal);
             } else {
-                Bitmap bitmap = Utils.snapshot(mViewFrom, mBackgroundColor, mForegroundColor, scale);
+                Bitmap bitmap = Utils.snapshot(mViewFrom, mBackgroundColor, mForegroundColor, scale, mAntiAlias);
                 blurredBitmap = requireBlur().process(bitmap, radius, 1, mKeepSize, mRecycleOriginal);
             }
         }
@@ -230,7 +239,7 @@ public final class Blurred {
                     recycleOriginal(true);
                     if (mViewInto != null) {
                         Bitmap blur = blur();
-                        Bitmap clip = Utils.clip(blur, mViewFrom, mViewInto);
+                        Bitmap clip = Utils.clip(blur, mViewFrom, mViewInto, mAntiAlias);
                         blur.recycle();
                         mViewInto.setImageBitmap(clip);
                     }
@@ -263,7 +272,10 @@ public final class Blurred {
     }
 
     public interface SnapshotInterceptor {
-        Bitmap snapshot(View from, int backgroundColor, int foregroundColor, float scale);
+        Bitmap snapshot(View from,
+                        int backgroundColor,
+                        int foregroundColor,
+                        float scale);
     }
 
     public interface Callback {

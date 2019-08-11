@@ -7,6 +7,8 @@ import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
 import android.view.View;
+import android.widget.CheckBox;
+import android.widget.CompoundButton;
 import android.widget.ImageView;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -18,6 +20,7 @@ import per.goweii.burred.Blurred;
 public class RealTimeBlurActivity extends AppCompatActivity implements View.OnClickListener {
 
     private TextView tv_fps;
+    private CheckBox cb_anti_alias;
     private ImageView iv_original;
     private ImageView iv_blurred;
     private SeekBar sb_radius;
@@ -37,14 +40,24 @@ public class RealTimeBlurActivity extends AppCompatActivity implements View.OnCl
         Blurred.init(RealTimeBlurActivity.this);
 
         tv_fps = findViewById(R.id.tv_fps);
+        cb_anti_alias = findViewById(R.id.cb_anti_alias);
         iv_original = findViewById(R.id.iv_original);
         iv_blurred = findViewById(R.id.iv_blurred);
         sb_radius = findViewById(R.id.sb_radius);
         tv_radius = findViewById(R.id.tv_radius);
         sb_scale = findViewById(R.id.sb_scale);
         tv_scale = findViewById(R.id.tv_scale);
+        tv_scale = findViewById(R.id.tv_scale);
 
         iv_original.setOnClickListener(this);
+        cb_anti_alias.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                if (mBlurred != null) {
+                    mBlurred.antiAlias(isChecked);
+                }
+            }
+        });
         sb_radius.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
@@ -81,6 +94,7 @@ public class RealTimeBlurActivity extends AppCompatActivity implements View.OnCl
         });
 
         mBlurred = Blurred.with(findViewById(R.id.sv))
+                .antiAlias(cb_anti_alias.isChecked())
                 .scale(1F / (sb_scale.getProgress() <= 0 ? 1 : sb_scale.getProgress()))
                 .radius(sb_radius.getProgress())
                 .listener(new Blurred.Listener() {

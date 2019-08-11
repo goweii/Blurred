@@ -2,9 +2,10 @@ package per.goweii.burred;
 
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.graphics.PaintFlagsDrawFilter;
 import android.graphics.Rect;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.ImageView;
 
 /**
@@ -27,24 +28,15 @@ class Utils {
         return requireNonNull(obj, "");
     }
 
-    static Bitmap snapshot(View view, float scale) {
-        return snapshot(view, 0, scale);
-    }
-
-    static Bitmap snapshot(View view, int bgColor) {
-        return snapshot(view, bgColor, 1);
-    }
-
-    static Bitmap snapshot(View view, int bgColor, float scale) {
-        return snapshot(view, bgColor, 0, scale);
-    }
-
-    static Bitmap snapshot(View from, int bgColor, int fgColor, float scale) {
+    static Bitmap snapshot(View from, int bgColor, int fgColor, float scale, boolean antiAlias) {
         final float newScale = scale > 0 ? scale : 1;
         final int w = (int) (from.getWidth() * newScale);
         final int h = (int) (from.getHeight() * newScale);
         Bitmap output = Bitmap.createBitmap(w <= 0 ? 1 : w, h <= 0 ? 1 : h, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(output);
+        if (antiAlias) {
+            canvas.setDrawFilter(new PaintFlagsDrawFilter(0, Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG));
+        }
         canvas.save();
         canvas.scale(newScale, newScale);
         if (bgColor != 0) {
@@ -58,7 +50,7 @@ class Utils {
         return output;
     }
 
-    static Bitmap clip(Bitmap bitmap, View from, ImageView into) {
+    static Bitmap clip(Bitmap bitmap, View from, ImageView into, boolean antiAlias) {
         int[] lf = new int[2];
         from.getLocationOnScreen(lf);
         int[] lt = new int[2];
@@ -67,8 +59,6 @@ class Utils {
         int bh = bitmap.getHeight();
         float sx = (float) bw / (float) from.getWidth();
         float sh = (float) bh / (float) from.getHeight();
-        Bitmap output = Bitmap.createBitmap(into.getWidth(), into.getHeight(), Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(output);
         Rect rf = new Rect(
                 (int) ((lt[0] - lf[0]) * sx),
                 (int) ((lt[1] - lf[1]) * sh),
@@ -76,27 +66,24 @@ class Utils {
                 (int) ((lt[1] - lf[1]) * sh + into.getHeight() * sh)
         );
         Rect rt = new Rect(0, 0, into.getWidth(), into.getHeight());
-        canvas.drawBitmap(bitmap, rf, rt, null);
-        return output;
-    }
-
-    private static void draw(Canvas canvas, View from, ImageView into) throws StopDrawException {
-        if (into == null) {
-            from.draw(canvas);
-        }
-        if (from == into) {
-            throw new StopDrawException();
-        }
-        if (from instanceof ViewGroup) {
-            ViewGroup viewGroup = (ViewGroup) from;
-            int count = viewGroup.getChildCount();
-            for (int i = 0; i < count; i++) {
-                View view = viewGroup.getChildAt(i);
-                draw(canvas, view, into);
+        Paint paint = null;
+        if (antiAlias) {
+            paint = new Paint();
+            paint.setXfermode(null);
+            paint.setAntiAlias(true);
+            float s = Math.max(
+                    (float) into.getWidth() / (float) rf.width(),
+                    (float) into.getHeight() / (float) rf.height()
+            );
+            if (s > 1) {
+                rt.right = rf.width();
+                rt.bottom = rf.height();
             }
-        } else {
-            from.draw(canvas);
         }
+        Bitmap output = Bitmap.createBitmap(rt.width(), rt.height(), Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(output);
+        canvas.drawBitmap(bitmap, rf, rt, paint);
+        return output;
     }
 
     private static class StopDrawException extends Exception {
