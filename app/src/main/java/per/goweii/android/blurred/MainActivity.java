@@ -2,7 +2,6 @@ package per.goweii.android.blurred;
 
 import android.content.Intent;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
@@ -135,7 +134,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         .selectPhoto();
                 break;
             case R.id.iv_blurred:
-                blurAndUpdateView();
+                if (mBitmapOriginal != null) {
+                    blurAndUpdateView();
+                }
                 break;
         }
     }
@@ -177,10 +178,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         if (mHelper != null) {
             List<String> imgs = mHelper.selectResult(requestCode, resultCode, data);
             if (imgs != null && imgs.size() > 0) {
-                mBitmapOriginal = BitmapFactory.decodeFile(imgs.get(0));
-
                 Glide.with(MainActivity.this)
-                        .load(mBitmapOriginal)
+                        .load(imgs.get(0))
                         .into(iv_original);
                 iv_blurred.setImageDrawable(new ColorDrawable(Color.TRANSPARENT));
 

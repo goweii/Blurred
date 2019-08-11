@@ -27,6 +27,7 @@ dependencies {
     implementation('com.github.bumptech.glide:okhttp3-integration:4.8.0') {
         exclude group: "com.android.support"
     }
+    implementation 'com.github.chrisbanes:PhotoView:2.0.0'
     // 照片，视频，音频的选择和拍摄
     implementation 'com.github.goweii:PictureSelector:v2.3.1'
     implementation project(':burred')

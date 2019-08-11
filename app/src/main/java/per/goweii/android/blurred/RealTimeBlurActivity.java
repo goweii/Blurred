@@ -1,17 +1,20 @@
 package per.goweii.android.blurred;
 
 import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.ImageView;
 import android.widget.SeekBar;
 import android.widget.TextView;
+
+import com.bumptech.glide.Glide;
+import com.github.chrisbanes.photoview.PhotoView;
 
 import java.util.List;
 
@@ -23,13 +26,12 @@ public class RealTimeBlurActivity extends AppCompatActivity implements View.OnCl
     private TextView tv_mspf;
     private CheckBox cb_anti_alias;
     private CheckBox cb_fit_xy;
-    private ImageView iv_original;
+    private PhotoView iv_original;
     private ImageView iv_blurred;
     private SeekBar sb_radius;
     private TextView tv_radius;
     private SeekBar sb_scale;
     private TextView tv_scale;
-    private Bitmap mBitmapOriginal;
 
     private PictureSelectorHelper mHelper;
     private Blurred mBlurred = null;
@@ -53,7 +55,6 @@ public class RealTimeBlurActivity extends AppCompatActivity implements View.OnCl
         tv_scale = findViewById(R.id.tv_scale);
         tv_scale = findViewById(R.id.tv_scale);
 
-        iv_original.setOnClickListener(this);
         cb_anti_alias.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
@@ -132,6 +133,22 @@ public class RealTimeBlurActivity extends AppCompatActivity implements View.OnCl
         mBlurred.blur(iv_blurred);
     }
 
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_real_time_blur, menu);
+        return super.onCreateOptionsMenu(menu);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.action_choose) {
+            mHelper = PictureSelectorHelper.with(RealTimeBlurActivity.this, 1)
+                    .singleMode(true)
+                    .selectPhoto();
+        }
+        return true;
+    }
+
     private long start = 0;
 
     @Override
@@ -142,15 +159,6 @@ public class RealTimeBlurActivity extends AppCompatActivity implements View.OnCl
 
     @Override
     public void onClick(View v) {
-        switch (v.getId()) {
-            default:
-                break;
-            case R.id.iv_original:
-                mHelper = PictureSelectorHelper.with(RealTimeBlurActivity.this, 1)
-                        .singleMode(true)
-                        .selectPhoto();
-                break;
-        }
     }
 
     @Override
@@ -159,8 +167,9 @@ public class RealTimeBlurActivity extends AppCompatActivity implements View.OnCl
         if (mHelper != null) {
             List<String> imgs = mHelper.selectResult(requestCode, resultCode, data);
             if (imgs != null && imgs.size() > 0) {
-                mBitmapOriginal = BitmapFactory.decodeFile(imgs.get(0));
-                iv_original.setImageBitmap(mBitmapOriginal);
+                Glide.with(RealTimeBlurActivity.this)
+                        .load(imgs.get(0))
+                        .into(iv_original);
             }
         }
     }
