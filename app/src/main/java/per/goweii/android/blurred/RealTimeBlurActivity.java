@@ -20,7 +20,9 @@ import per.goweii.burred.Blurred;
 public class RealTimeBlurActivity extends AppCompatActivity implements View.OnClickListener {
 
     private TextView tv_fps;
+    private TextView tv_mspf;
     private CheckBox cb_anti_alias;
+    private CheckBox cb_fit_xy;
     private ImageView iv_original;
     private ImageView iv_blurred;
     private SeekBar sb_radius;
@@ -40,7 +42,9 @@ public class RealTimeBlurActivity extends AppCompatActivity implements View.OnCl
         Blurred.init(RealTimeBlurActivity.this);
 
         tv_fps = findViewById(R.id.tv_fps);
+        tv_mspf = findViewById(R.id.tv_mspf);
         cb_anti_alias = findViewById(R.id.cb_anti_alias);
+        cb_fit_xy = findViewById(R.id.cb_fit_xy);
         iv_original = findViewById(R.id.iv_original);
         iv_blurred = findViewById(R.id.iv_blurred);
         sb_radius = findViewById(R.id.sb_radius);
@@ -55,6 +59,14 @@ public class RealTimeBlurActivity extends AppCompatActivity implements View.OnCl
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 if (mBlurred != null) {
                     mBlurred.antiAlias(isChecked);
+                }
+            }
+        });
+        cb_fit_xy.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                if (mBlurred != null) {
+                    mBlurred.fitIntoViewXY(isChecked);
                 }
             }
         });
@@ -94,9 +106,16 @@ public class RealTimeBlurActivity extends AppCompatActivity implements View.OnCl
         });
 
         mBlurred = Blurred.with(findViewById(R.id.sv))
+                .fitIntoViewXY(cb_fit_xy.isChecked())
                 .antiAlias(cb_anti_alias.isChecked())
                 .scale(1F / (sb_scale.getProgress() <= 0 ? 1 : sb_scale.getProgress()))
                 .radius(sb_radius.getProgress())
+                .fpsListener(new Blurred.FpsListener() {
+                    @Override
+                    public void currFps(float fps) {
+                        tv_fps.setText(String.format("fps%.1f", fps));
+                    }
+                })
                 .listener(new Blurred.Listener() {
                     @Override
                     public void begin() {
@@ -107,8 +126,7 @@ public class RealTimeBlurActivity extends AppCompatActivity implements View.OnCl
                     public void end() {
                         long end = System.currentTimeMillis();
                         long off = end - start;
-                        float fps = 1000F / off;
-                        tv_fps.setText(String.format("fps%.1f", fps));
+                        tv_mspf.setText(String.format("mspf%d", off));
                     }
                 });
         mBlurred.blur(iv_blurred);

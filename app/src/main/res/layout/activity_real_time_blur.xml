@@ -47,23 +47,51 @@
             android:layout_height="match_parent"
             android:scaleType="fitXY" />
 
-        <CheckBox
-            android:id="@+id/cb_anti_alias"
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:alpha="0.3"
-            android:text="抗锯齿" />
+            android:orientation="vertical"
+            android:alpha="0.3">
 
-        <TextView
-            android:id="@+id/tv_fps"
+            <CheckBox
+                android:id="@+id/cb_anti_alias"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="抗锯齿" />
+
+            <CheckBox
+                android:id="@+id/cb_fit_xy"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="扩展到目标大小" />
+
+        </LinearLayout>
+
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="right"
             android:layout_margin="5dp"
-            android:alpha="0.3"
-            android:textColor="@color/white"
-            android:textSize="12sp"
-            tools:text="60" />
+            android:orientation="vertical"
+            android:alpha="0.3">
+
+            <TextView
+                android:id="@+id/tv_fps"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/white"
+                android:textSize="12sp"
+                tools:text="60" />
+
+            <TextView
+                android:id="@+id/tv_mspf"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/white"
+                android:textSize="12sp"
+                tools:text="60" />
+
+        </LinearLayout>
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -127,7 +155,7 @@
                     android:layout_height="match_parent"
                     android:layout_weight="1"
                     android:max="50"
-                    android:progress="2" />
+                    android:progress="8" />
 
                 <TextView
                     android:id="@+id/tv_scale"
@@ -136,7 +164,7 @@
                     android:gravity="center"
                     android:paddingLeft="5dp"
                     android:paddingRight="5dp"
-                    android:text="2"
+                    android:text="8"
                     android:textSize="10dp" />
 
             </LinearLayout>

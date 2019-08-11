@@ -53,6 +53,7 @@ public final class GaussianBlur implements IBlur {
         if (!mRealTimeMode) {
             destroyAllocations();
         }
+        BitmapProcessor.get().realTimeMode(realTimeMode);
         return this;
     }
 
@@ -80,7 +81,7 @@ public final class GaussianBlur implements IBlur {
             if (newScale == 1) {
                 return originalBitmap;
             }
-            Bitmap scaleBitmap = Utils.scaleBitmap(originalBitmap, newScale);
+            Bitmap scaleBitmap = BitmapProcessor.get().scaleBitmap(originalBitmap, newScale);
             if (recycleOriginal) {
                 originalBitmap.recycle();
             }
@@ -99,7 +100,7 @@ public final class GaussianBlur implements IBlur {
         }
         final int width = originalBitmap.getWidth();
         final int height = originalBitmap.getHeight();
-        Bitmap input = Utils.scaleBitmap(originalBitmap, newScale);
+        Bitmap input = BitmapProcessor.get().scaleBitmap(originalBitmap, newScale);
         if (recycleOriginal) {
             originalBitmap.recycle();
         }
@@ -108,7 +109,7 @@ public final class GaussianBlur implements IBlur {
         if (!keepSize) {
             return output;
         }
-        Bitmap outputScaled = Utils.scaleBitmap(output, width, height);
+        Bitmap outputScaled = BitmapProcessor.get().scaleBitmap(output, width, height);
         output.recycle();
         return outputScaled;
     }
