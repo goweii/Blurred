@@ -2,6 +2,7 @@ package per.goweii.android.blurred;
 
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
@@ -16,8 +17,6 @@ import android.widget.CompoundButton;
 import android.widget.ImageView;
 import android.widget.SeekBar;
 import android.widget.TextView;
-
-import com.bumptech.glide.Glide;
 
 import java.util.List;
 
@@ -134,14 +133,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         .selectPhoto();
                 break;
             case R.id.iv_blurred:
-                if (mBitmapOriginal != null) {
-                    blurAndUpdateView();
-                }
+                blurAndUpdateView();
                 break;
         }
     }
 
     private void blurAndUpdateView() {
+        if (mBitmapOriginal == null) return;
         long start = System.currentTimeMillis();
         blur();
         long end = System.currentTimeMillis();
@@ -178,11 +176,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         if (mHelper != null) {
             List<String> imgs = mHelper.selectResult(requestCode, resultCode, data);
             if (imgs != null && imgs.size() > 0) {
-                Glide.with(MainActivity.this)
-                        .load(imgs.get(0))
-                        .into(iv_original);
+                mBitmapOriginal = BitmapFactory.decodeFile(imgs.get(0));
+                iv_original.setImageBitmap(mBitmapOriginal);
                 iv_blurred.setImageDrawable(new ColorDrawable(Color.TRANSPARENT));
-
                 setInfo(false, 0);
             }
         }

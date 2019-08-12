@@ -1,14 +1,18 @@
 package per.goweii.android.blurred;
 
+import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -22,6 +26,7 @@ import per.goweii.burred.Blurred;
 
 public class RealTimeBlurActivity extends AppCompatActivity implements View.OnClickListener {
 
+    private FrameLayout fl_blurred;
     private TextView tv_fps;
     private TextView tv_mspf;
     private CheckBox cb_anti_alias;
@@ -33,9 +38,15 @@ public class RealTimeBlurActivity extends AppCompatActivity implements View.OnCl
     private SeekBar sb_scale;
     private TextView tv_scale;
 
+    private float lastX = 0;
+    private float lastY = 0;
+    private float downX = 0;
+    private float downY = 0;
+
     private PictureSelectorHelper mHelper;
     private Blurred mBlurred = null;
 
+    @SuppressLint("ClickableViewAccessibility")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -43,6 +54,7 @@ public class RealTimeBlurActivity extends AppCompatActivity implements View.OnCl
 
         Blurred.init(RealTimeBlurActivity.this);
 
+        fl_blurred = findViewById(R.id.fl_blurred);
         tv_fps = findViewById(R.id.tv_fps);
         tv_mspf = findViewById(R.id.tv_mspf);
         cb_anti_alias = findViewById(R.id.cb_anti_alias);
@@ -103,6 +115,26 @@ public class RealTimeBlurActivity extends AppCompatActivity implements View.OnCl
 
             @Override
             public void onStopTrackingTouch(SeekBar seekBar) {
+            }
+        });
+        iv_blurred.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                switch (event.getAction()) {
+                    case MotionEvent.ACTION_DOWN:
+                        downX = event.getRawX();
+                        downY = event.getRawY();
+                        lastX = fl_blurred.getTranslationX();
+                        lastY = fl_blurred.getTranslationY();
+                        break;
+                    case MotionEvent.ACTION_MOVE:
+                        float currX = event.getRawX();
+                        float currY = event.getRawY();
+                        fl_blurred.setTranslationX(lastX + (currX - downX));
+                        fl_blurred.setTranslationY(lastY + (currY - downY));
+                        break;
+                }
+                return true;
             }
         });
 
