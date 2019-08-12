@@ -2,6 +2,7 @@ package per.goweii.android.blurred;
 
 import android.annotation.SuppressLint;
 import android.content.Intent;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
@@ -141,6 +142,7 @@ public class RealTimeBlurActivity extends AppCompatActivity implements View.OnCl
         mBlurred = Blurred.with(findViewById(R.id.sv))
                 .fitIntoViewXY(cb_fit_xy.isChecked())
                 .antiAlias(cb_anti_alias.isChecked())
+                .backgroundColor(Color.WHITE)
                 .scale(1F / (sb_scale.getProgress() <= 0 ? 1 : sb_scale.getProgress()))
                 .radius(sb_radius.getProgress())
                 .fpsListener(new Blurred.FpsListener() {
